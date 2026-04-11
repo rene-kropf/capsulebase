@@ -1,0 +1,35 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.venv/
+
+# Logs
+*.log
+capsule.log
+
+# Data — never commit real conversations
+conversations.json
+*.json.bak
+
+# macOS
+.DS_Store
+__MACOSX/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Distribution
+dist/
+build/
+*.egg-info/

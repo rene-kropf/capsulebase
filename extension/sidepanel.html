@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0f1219;
+    color: #e4e7ed;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .header {
+    background: #1a1f2e;
+    border-bottom: 1px solid #2d3548;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .logo-icon {
+    width: 26px; height: 26px;
+    background: linear-gradient(135deg, #10b981, #3b82f6);
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .logo-text {
+    font-size: 12px;
+    font-weight: 700;
+    color: #10b981;
+    letter-spacing: 1px;
+  }
+
+  .logo-sub {
+    font-size: 9px;
+    color: #4a5168;
+    letter-spacing: 1px;
+  }
+
+  .badge {
+    margin-left: auto;
+    background: #10b981;
+    color: #0f1219;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .waiting {
+    text-align: center;
+    color: #4a5168;
+    font-size: 12px;
+    line-height: 1.6;
+    margin-top: 60px;
+  }
+
+  .waiting .icon {
+    font-size: 28px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  .context-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #4a5168;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .current-title {
+    font-size: 12px;
+    color: #8b92a5;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #2d3548;
+    line-height: 1.4;
+    font-style: italic;
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #4a5168;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .result-card {
+    background: #1a1f2e;
+    border: 1px solid #2d3548;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    transition: border-color 0.15s;
+  }
+
+  .result-card:hover {
+    border-color: #3d4a6e;
+  }
+
+  .result-card.selected {
+    border-color: #10b981;
+    background: #111a14;
+  }
+
+  .result-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #e4e7ed;
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+
+  .result-summary {
+    font-size: 11px;
+    color: #8b92a5;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+
+  .result-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .result-score {
+    font-size: 10px;
+    color: #10b981;
+    font-weight: 600;
+  }
+
+  .result-date {
+    font-size: 10px;
+    color: #4a5168;
+  }
+
+  .result-tag {
+    font-size: 9px;
+    background: #2d3548;
+    color: #8b92a5;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .result-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #2d3548;
+  }
+
+  .result-check input[type="checkbox"] {
+    accent-color: #10b981;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
+  .result-check label {
+    font-size: 11px;
+    color: #8b92a5;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .footer {
+    padding: 14px 16px;
+    border-top: 1px solid #2d3548;
+    background: #0f1219;
+    flex-shrink: 0;
+  }
+
+  .btn-inject {
+    width: 100%;
+    background: #10b981;
+    color: #0f1219;
+    border: none;
+    border-radius: 8px;
+    padding: 11px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    letter-spacing: 0.3px;
+  }
+
+  .btn-inject:hover { background: #059669; }
+  .btn-inject:disabled { background: #2d3548; color: #4a5168; cursor: not-allowed; }
+
+  .btn-dismiss {
+    width: 100%;
+    background: transparent;
+    color: #4a5168;
+    border: none;
+    padding: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: color 0.15s;
+  }
+
+  .btn-dismiss:hover { color: #8b92a5; }
+
+  .inject-status {
+    font-size: 11px;
+    text-align: center;
+    margin-top: 8px;
+    min-height: 16px;
+    color: #10b981;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo-icon"></div>
+  <div>
+    <div class="logo-text">CAPSULE</div>
+    <div class="logo-sub">RELATED MEMORY</div>
+  </div>
+  <div class="badge" id="badge" style="display:none"></div>
+</div>
+
+<div class="content" id="content">
+  <div class="waiting">
+    <div class="icon">🧠</div>
+    Capsule is watching your conversation.<br>
+    After a few exchanges, related memory<br>
+    will appear here automatically.
+  </div>
+</div>
+
+<div class="footer" id="footer" style="display:none">
+  <button class="btn-inject" id="injectBtn" disabled>Add Selected to Conversation</button>
+  <button class="btn-dismiss" id="dismissBtn">Dismiss</button>
+  <div class="inject-status" id="injectStatus"></div>
+</div>
+
+<script src="sidepanel.js"></script>
+</body>
+</html>

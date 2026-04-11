@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background -->
+  <rect width="32" height="32" rx="8" fill="#0f1318"/>
+
+  <!-- Capsule left half filled -->
+  <path d="M7 16 C7 10.5 10.5 7 16 7 L16 25 C10.5 25 7 21.5 7 16Z" fill="#7c9ef5"/>
+
+  <!-- Capsule right half outline -->
+  <path d="M16 7 C21.5 7 25 10.5 25 16 C25 21.5 21.5 25 16 25 L16 7Z"
+        fill="none" stroke="#7c9ef5" stroke-width="1.5"/>
+
+  <!-- Green dot -->
+  <circle cx="22" cy="10" r="3" fill="#4ade80"/>
+</svg>
