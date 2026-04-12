@@ -55,8 +55,8 @@ The setup script handles dependencies, database setup, and configuration.
 
 - **Backend** — Python / FastAPI
 - **Database** — PostgreSQL + pgvector
-- **Embeddings** — OpenAI or Ollama (fully local option)
-- **Summaries & tagging** — Claude API
+- ** Embeddings — OpenAI or Ollama (fully local option)
+- **Summaries & tagging — Claude API (Ollama support coming)
 - **Chrome extension** — saves conversations from Claude, ChatGPT, Gemini
 - **MCP server** — connects CapsuleBase to Claude Desktop
 
