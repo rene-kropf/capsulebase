@@ -80,6 +80,27 @@ No subscription that can disappear. No vendor who can change the terms. Your kno
 
 ---
 
+## Current state & roadmap
+
+CapsuleBase is actively developed and already useful — but here's an honest picture of where things stand.
+
+**What works now**
+- Save and search Claude and ChatGPT conversations
+- Chrome extension (Claude and ChatGPT)
+- Bulk import from Claude and ChatGPT export files
+- Summaries, titles, tags, and categories via Claude API
+- MCP server for Claude Desktop
+- Hybrid text + semantic search
+
+**Coming next**
+- Ollama support (fully local summaries and embeddings, no API key required)
+- Gemini conversation import and Chrome extension support
+- Perplexity support
+- Email ingestion — the original idea, and still on the list
+- Windows and Linux support
+
+---
+
 ## License
 
 MIT — do what you want with it.
