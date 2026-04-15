@@ -33,3 +33,5 @@ __MACOSX/
 dist/
 build/
 *.egg-info/
+Archive.zip
+*.zip
