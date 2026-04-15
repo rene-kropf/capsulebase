@@ -1,9 +1,10 @@
 # ============================================================
 # Capsule MCP Server
 # File: capsule_mcp.py
-# Version: 1.0.0
-# Date: 2026-04-06
-# Exposes Capsule semantic search as an MCP tool for Claude
+# Version: 1.1.0
+# Date: 2026-04-15
+# Changes: Switched to hybrid search (/search/hybrid) so
+#          results work with or without embeddings
 # ============================================================
 
 import httpx
@@ -29,7 +30,7 @@ async def search_capsule(query: str, limit: int = 5) -> str:
         limit = min(limit, 10)
         async with httpx.AsyncClient(timeout=10.0) as client:
             res = await client.get(
-                f"{CAPSULE_URL}/search",
+                f"{CAPSULE_URL}/search/hybrid",
                 params={"q": query, "limit": limit}
             )
             res.raise_for_status()
@@ -41,7 +42,7 @@ async def search_capsule(query: str, limit: int = 5) -> str:
         lines = [f"Found {len(results)} relevant entries in Capsule:\n"]
         for i, r in enumerate(results, 1):
             lines.append(f"--- Entry {i}: {r['title']} ---")
-            lines.append(f"Source: {r['source']} | Category: {r.get('category', 'Unknown')} | Relevance: {int(r['similarity'] * 100)}%")
+            lines.append(f"Source: {r['source']} | Category: {r.get('category', 'Unknown')} | Relevance: {int(r.get('similarity', 0) * 100)}%")
             if r.get('summary'):
                 lines.append(f"Summary: {r['summary']}")
             if r.get('tags'):
