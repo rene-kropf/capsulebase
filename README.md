@@ -23,7 +23,6 @@ CapsuleBase solves it.
 - **One-click save** — Chrome extension saves any AI conversation to your local knowledge base instantly
 - **Bulk import** — Import your entire Claude or ChatGPT conversation history in minutes
 - **Hybrid search** — Text and semantic search combined. Find what you mean, not just what you typed
-- **Claude remembers** — Connects to Claude Desktop via MCP. Claude quietly searches your history before answering — richer responses every time
 - **Auto summaries** — Every saved conversation gets an auto-generated title, summary, tags, and category. The index builds itself
 - **Cross-platform** — Claude and ChatGPT conversations in one searchable local archive
 - **Truly local** — PostgreSQL + pgvector on your machine. No cloud sync. No account required
@@ -34,8 +33,8 @@ CapsuleBase solves it.
 
 - Mac (Apple Silicon or Intel) — Windows and Linux support coming
 - Python 3.11+
-- An [Anthropic API key](https://console.anthropic.com/) or [OpenAI API key](https://platform.openai.com/)
 - PostgreSQL
+- An [Anthropic API key](https://console.anthropic.com/) for AI summaries — or run fully local with Ollama (no API key required)
 
 ---
 
@@ -55,10 +54,9 @@ The setup script handles dependencies, database setup, and configuration.
 
 - **Backend** — Python / FastAPI
 - **Database** — PostgreSQL + pgvector
-- ** Embeddings — OpenAI or Ollama (fully local option)
-- **Summaries & tagging — Claude API (Ollama support coming)
+- **Embeddings** — Ollama (fully local) or OpenAI
+- **Summaries & tagging** — Claude API or Ollama (fully local)
 - **Chrome extension** — saves conversations from Claude, ChatGPT, Gemini
-- **MCP server** — connects CapsuleBase to Claude Desktop
 
 ---
 
@@ -88,15 +86,14 @@ CapsuleBase is actively developed and already useful — but here's an honest pi
 - Save and search Claude and ChatGPT conversations
 - Chrome extension (Claude and ChatGPT)
 - Bulk import from Claude and ChatGPT export files
-- Summaries, titles, tags, and categories via Claude API
-- MCP server for Claude Desktop
+- Summaries, titles, tags, and categories via Claude API or Ollama
+- Fully local embeddings via Ollama (no API key required)
 - Hybrid text + semantic search
 
 **Coming next**
-- Ollama support (fully local summaries and embeddings, no API key required)
 - Gemini conversation import and Chrome extension support
 - Perplexity support
-- Email ingestion — the original idea, and still on the list
+- Email ingestion
 - Windows and Linux support
 
 ---
