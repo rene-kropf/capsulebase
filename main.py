@@ -1,20 +1,28 @@
 # ============================================================
 # Capsule - Local Knowledge OS
 # File: main.py
-# Version: 2.1.0
-# Date: 2026-04-06
-# Changes: URL-based dedup, title update on re-save,
-#          source_url stored on all entries
+# Version: 1.0.0
+# Date: 2026-04-16
+# Changes from .09.0.0:
+#   - Embedding scheduled via FastAPI BackgroundTasks instead of
+#     asyncio.create_task. asyncio.create_task swallowed exceptions
+#     silently and dropped embeddings under concurrent load.
+#   - process_entry_background now chunks content via chunker.py
+#     (paragraph-based, no truncation) and stores one embedding row
+#     per chunk instead of one truncated vector per entry.
+#   - Hybrid search deduplicates by entry_id when ranking chunks,
+#     so one entry with many chunks doesn't monopolize results.
+#   - Semantic /search endpoint returns best-matching chunk per
+#     entry rather than raw chunk rows.
 # ============================================================
 
 import os
 import json
 import httpx
-import asyncio
 from datetime import datetime
 from typing import Optional
 
-from fastapi import FastAPI, Request, Form, HTTPException
+from fastapi import FastAPI, Request, Form, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy import create_engine, text
@@ -25,10 +33,11 @@ from database import init_db, SessionLocal
 from models import Entry, EntryMetadata, Conversation, Embedding, Project
 from ai_processor import process_entry
 from embeddings import generate_embedding
+from chunker import chunk_text as chunk_content
 
 load_dotenv()
 
-app = FastAPI(title="Capsule", version="2.1.0")
+app = FastAPI(title="Capsule", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,10 +68,19 @@ async def serve_ui():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "Capsule", "version": "2.1.0"}
+    return {"status": "ok", "service": "Capsule", "version": "1.0.0"}
 
 # ============================================================
 # BACKGROUND AI PROCESSING
+#
+# Runs after a save/import returns. Does two things:
+#   1. Calls the AI processor for a summary + tags + category,
+#      and persists those to entries + entry_metadata.
+#   2. Chunks the content and creates one embedding row per chunk.
+#
+# Invoked via BackgroundTasks so exceptions surface in FastAPI logs
+# instead of being silently swallowed (the old asyncio.create_task
+# approach dropped exceptions and caused missing embeddings).
 # ============================================================
 async def process_entry_background(entry_id: int, title: str, content: str):
     db = SessionLocal()
@@ -70,8 +88,11 @@ async def process_entry_background(entry_id: int, title: str, content: str):
         entry = db.query(Entry).filter(Entry.id == entry_id).first()
         if not entry:
             return
+
+        # --- AI summary / tags / category ---
         ai_result = await process_entry(title, content)
         entry.summary = ai_result.get("summary", "")
+
         metadata = db.query(EntryMetadata).filter(EntryMetadata.entry_id == entry_id).first()
         if metadata:
             metadata.tags = ai_result.get("tags", [])
@@ -83,19 +104,44 @@ async def process_entry_background(entry_id: int, title: str, content: str):
                 category=ai_result.get("category", "Conversation"),
             )
             db.add(metadata)
-        existing_emb = db.query(Embedding).filter(Embedding.entry_id == entry_id).first()
-        embedding_vector = await generate_embedding(content)
-        if embedding_vector:
-            if existing_emb:
-                existing_emb.chunk_text = content[:2000]
-                existing_emb.vector = embedding_vector
-            else:
-                emb = Embedding(entry_id=entry_id, chunk_text=content[:2000], vector=embedding_vector)
-                db.add(emb)
+
+        # --- Embedding: chunk the full content, embed each chunk ---
+        chunks = chunk_content(content)
+
+        if not chunks:
+            print(f"⚠️  Entry {entry_id} produced no chunks (empty content?)")
+            db.commit()
+            return
+
+        # Replace any existing embeddings for this entry. Handles both
+        # first-save (no existing rows) and re-save (stale rows from
+        # the previous content) cleanly.
+        db.query(Embedding).filter(Embedding.entry_id == entry_id).delete()
+        db.flush()
+
+        embedded = 0
+        for chunk in chunks:
+            vector = await generate_embedding(chunk)
+            if not vector:
+                # Ollama failed for this chunk. Log and move on —
+                # other chunks may still succeed.
+                print(f"⚠️  Failed to embed a chunk of entry {entry_id}")
+                continue
+
+            emb = Embedding(
+                entry_id=entry_id,
+                chunk_text=chunk,
+                vector=vector,
+            )
+            db.add(emb)
+            embedded += 1
+
         db.commit()
-        print(f"✅ AI processing complete for entry {entry_id}: {title}")
+        print(f"✅ AI processing complete for entry {entry_id}: "
+              f"{embedded}/{len(chunks)} chunks — {title}")
+
     except Exception as e:
-        print(f"❌ Background processing error: {e}")
+        print(f"❌ Background processing error for entry {entry_id}: {e}")
         db.rollback()
     finally:
         db.close()
@@ -104,7 +150,7 @@ async def process_entry_background(entry_id: int, title: str, content: str):
 # CONVERSATION IMPORT
 # ============================================================
 @app.post("/import/conversation")
-async def import_conversation(request: Request):
+async def import_conversation(request: Request, background_tasks: BackgroundTasks):
     body = await request.json()
     platform   = body.get("platform", "unknown")
     title      = body.get("title", "Imported Conversation")
@@ -138,7 +184,7 @@ async def import_conversation(request: Request):
             db.commit()
             entry_id = existing.id
             print(f"✅ Conversation updated: {title} [{platform}]")
-            asyncio.create_task(process_entry_background(entry_id, title, content))
+            background_tasks.add_task(process_entry_background, entry_id, title, content)
             return {"status": "ok", "entry_id": entry_id, "action": "updated"}
 
         entry = Entry(source=platform, title=title, raw_content=content,
@@ -154,7 +200,7 @@ async def import_conversation(request: Request):
         db.commit()
         entry_id = entry.id
         print(f"✅ Conversation saved: {title} [{platform}]")
-        asyncio.create_task(process_entry_background(entry_id, title, content))
+        background_tasks.add_task(process_entry_background, entry_id, title, content)
         return {"status": "ok", "entry_id": entry_id, "action": "created"}
 
     except Exception as e:
@@ -168,7 +214,7 @@ async def import_conversation(request: Request):
 # MAILGUN WEBHOOK
 # ============================================================
 @app.post("/inbound/email")
-async def receive_email(request: Request):
+async def receive_email(request: Request, background_tasks: BackgroundTasks):
     form = await request.form()
     subject     = form.get("subject", "No Subject")
     body_plain  = form.get("body-plain", "")
@@ -182,7 +228,7 @@ async def receive_email(request: Request):
         db.add(entry)
         db.flush()
         db.commit()
-        asyncio.create_task(process_entry_background(entry.id, subject, raw_content))
+        background_tasks.add_task(process_entry_background, entry.id, subject, raw_content)
         return {"status": "ok", "entry_id": entry.id, "title": subject}
     except Exception as e:
         db.rollback()
@@ -192,6 +238,11 @@ async def receive_email(request: Request):
 
 # ============================================================
 # HYBRID SEARCH
+#
+# Combines full-text scoring on entries with semantic scoring over
+# embedding chunks. Now that entries produce multiple chunks, we
+# dedupe semantic results by entry_id and keep each entry's best
+# chunk — otherwise one long entry's chunks could fill all 50 slots.
 # ============================================================
 @app.get("/search/hybrid")
 async def hybrid_search(q: str, limit: int = 30):
@@ -219,14 +270,19 @@ async def hybrid_search(q: str, limit: int = 30):
         semantic_results = []
         query_vector = await generate_embedding(q)
         if query_vector:
+            # DISTINCT ON (e.id) with ORDER BY e.id, distance ASC
+            # picks the BEST-matching chunk per entry. Without this,
+            # a single long entry could dominate results by stuffing
+            # many of its chunks into the top 50.
             semantic_results = db.execute(text("""
-                SELECT e.id, e.title, e.summary, e.source, e.created_at,
+                SELECT DISTINCT ON (e.id)
+                       e.id, e.title, e.summary, e.source, e.created_at,
                        em.tags, em.category,
                        1 - (emb.vector <=> :qv) AS semantic_score
                 FROM embeddings emb
                 JOIN entries e ON e.id = emb.entry_id
                 LEFT JOIN entry_metadata em ON em.entry_id = e.id
-                ORDER BY emb.vector <=> :qv
+                ORDER BY e.id, emb.vector <=> :qv
                 LIMIT 50
             """), {"qv": "[" + ",".join(str(x) for x in query_vector) + "]"}).fetchall()
 
@@ -254,10 +310,10 @@ async def hybrid_search(q: str, limit: int = 30):
                 }
 
         for item in seen.values():
-            item["score"] = (item["text_score"] * 0.7) + (item["semantic_score"] * 0.3)
+            item["score"] = (item["text_score"] * 0.4) + (item["semantic_score"] * 0.6)
             item["similarity"] = round(item["score"], 3)
 
-        MIN_SCORE = 0.20
+        MIN_SCORE = 0.25
         results = [r for r in seen.values() if r["score"] >= MIN_SCORE]
         results = sorted(results, key=lambda x: x["score"], reverse=True)[:limit]
         return results
@@ -300,6 +356,10 @@ async def text_search(q: str, limit: int = 20):
 
 # ============================================================
 # SEMANTIC SEARCH (kept for MCP)
+#
+# Dedupes by entry_id and returns the best-matching chunk per entry
+# along with that chunk's text, so MCP consumers can show which
+# passage matched.
 # ============================================================
 @app.get("/search")
 async def search(q: str, limit: int = 10):
@@ -311,25 +371,35 @@ async def search(q: str, limit: int = 10):
     db = SessionLocal()
     try:
         results = db.execute(text("""
-            SELECT e.id, e.title, e.summary, e.source, e.created_at,
+            SELECT DISTINCT ON (e.id)
+                   e.id, e.title, e.summary, e.source, e.created_at,
                    em.tags, em.category, emb.chunk_text,
                    1 - (emb.vector <=> :query_vector) AS similarity
             FROM embeddings emb
             JOIN entries e ON e.id = emb.entry_id
             LEFT JOIN entry_metadata em ON em.entry_id = e.id
-            ORDER BY emb.vector <=> :query_vector
+            ORDER BY e.id, emb.vector <=> :query_vector
             LIMIT :limit
         """), {
             "query_vector": "[" + ",".join(str(x) for x in query_vector) + "]",
             "limit": limit
         }).fetchall()
-        return [
-            {"id": r.id, "title": r.title, "summary": r.summary,
-             "source": r.source, "created_at": str(r.created_at),
-             "tags": r.tags, "category": r.category,
-             "similarity": round(float(r.similarity), 3)}
-            for r in results
-        ]
+        # Note: the DISTINCT ON above picks best chunk per entry but
+        # ORDER BY above is for the distinct — the final list needs
+        # to be sorted by similarity descending.
+        rows = sorted(
+            [
+                {"id": r.id, "title": r.title, "summary": r.summary,
+                 "source": r.source, "created_at": str(r.created_at),
+                 "tags": r.tags, "category": r.category,
+                 "chunk_text": r.chunk_text,
+                 "similarity": round(float(r.similarity), 3)}
+                for r in results
+            ],
+            key=lambda x: x["similarity"],
+            reverse=True,
+        )
+        return rows
     finally:
         db.close()
 

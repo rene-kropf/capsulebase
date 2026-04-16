@@ -1,7 +1,7 @@
 # ============================================================
 # Capsule - Local Knowledge OS
 # File: models.py
-# Version: 1.1.0
+# Version: 1.2.0
 # Date: 2026-04-10
 # Changes: Added source_url to Entry for URL-based dedup
 # ============================================================
@@ -73,6 +73,6 @@ class Embedding(Base):
     id          = Column(Integer, primary_key=True)
     entry_id    = Column(Integer, ForeignKey("entries.id"), nullable=False)
     chunk_text  = Column(Text)
-    vector      = Column(Vector(1536))
+    vector      = Column(Vector(768))
 
     entry       = relationship("Entry", back_populates="embeddings")
